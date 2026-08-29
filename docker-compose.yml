@@ -16,6 +16,12 @@ services:
       - ./data:/app/data
     networks:
       - vinlotteri
+      - web
 
 networks:
   vinlotteri:
+  # The shared reverse-proxy network Caddy sits on (the same one the poker app
+  # joins); created outside this project, so it must already exist:
+  #   docker network create web
+  web:
+    external: true

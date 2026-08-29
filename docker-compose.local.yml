@@ -5,6 +5,10 @@
 #
 # Note: this runs the production build (Express serving the built client). For
 # live frontend editing with hot-reload, use `npm run dev` on the host instead.
+#
+# This overlay inherits the external `web` network from docker-compose.yml (the
+# VPS's Caddy network). It is unused locally but must exist, so run once:
+#   docker network create web
 services:
   app:
     container_name: vinlotteri-app-local

@@ -54,15 +54,29 @@ Keep TypeScript strict mode on; the project must build with zero type errors.
 ## Docker (mirror `webint_program`'s two-file compose pattern, adapted for a build step)
 
 - `Dockerfile` — multi-stage: build React (Vite) + compile Express, then a slim `node:22-alpine` runtime stage copying only built output + `data/`, running the compiled server. `EXPOSE 3000`, `ENV PORT=3000`.
-- `docker-compose.yml` (prod/VPS) — builds image, `restart: unless-stopped`, `expose: 3000` only (no published host port — sits behind a Caddy reverse proxy), bind-mounts `./data:/app/data`, own network.
+- `docker-compose.yml` (prod/VPS) — builds image, `restart: unless-stopped`, `expose: 3000` only (no published host port — sits behind a Caddy reverse proxy), bind-mounts `./data:/app/data`, own network plus the external `web` network shared with Caddy (see Deployment below).
 - `docker-compose.local.yml` (local overlay) — adds `ports: "3000:3000"`, bind-mounts source for live editing, `restart: "no"`.
 - Run locally: `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build` → http://localhost:3000
 
-## Running the reference project (`webint_program/`)
+## Deployment (VPS, behind Caddy)
 
-No build step, no `package.json`, Node 22+ standard library only:
-```bash
-cd webint_program
-node src/javascript/server.js                 # → http://localhost:3000
-# or Docker (local): docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+The app runs at **komteksvinklubb.online** as one container, `vinlotteri-app`.
+Caddy (`~/opt/caddy` on the VPS) terminates TLS and proxies to it over the
+pre-existing external Docker network `web`, which every proxied app joins:
+
+```caddyfile
+komteksvinklubb.online, www.komteksvinklubb.online {
+    reverse_proxy vinlotteri-app:3000
+}
 ```
+
+One `reverse_proxy` line is enough — the same Express process serves `/api/*`,
+`/uploads/*` and the built SPA, so there is nothing to split by path.
+
+Caddy resolves the **container name** (`vinlotteri-app`), not the service name
+(`app`), which is deliberate: the service is called `app` here, so using the
+service name would collide with any other project on `web` that does the same.
+
+On the VPS, `.env` must be created by hand next to `docker-compose.yml` — it is
+gitignored, so it never arrives with a clone, and `env_file` makes compose fail
+outright without it.

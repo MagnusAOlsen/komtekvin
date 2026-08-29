@@ -24,7 +24,7 @@ an admin password; reads are open.
 | `vite.config.ts` | Vite setup: React plugin, dev server on port 5173, proxies `/api` → `http://localhost:3000`, builds into `dist/`. |
 | `index.html` | The SPA shell. Contains `<div id="root">` and loads `src/main.tsx`. |
 | `Dockerfile` | Two-stage build: compile client + server, then a slim `node:22-alpine` runtime holding only `dist/`, `server-dist/`, `data/` and prod dependencies. |
-| `docker-compose.yml` | Production/VPS: builds the image, `restart: unless-stopped`, `expose: 3000` only (sits behind a Caddy reverse proxy), bind-mounts `./data`. |
+| `docker-compose.yml` | Production/VPS: builds the image, `restart: unless-stopped`, `expose: 3000` only (sits behind a Caddy reverse proxy), bind-mounts `./data`, joins its own network plus the external `web` network Caddy is on. |
 | `docker-compose.local.yml` | Local overlay: publishes `3000:3000`, mounts the source for live editing, `restart: "no"`. |
 | `.env` / `.env.example` | `PASSWORD=…` — the admin password. `.env` is git- and docker-ignored; the example documents the shape. |
 | `.gitignore`, `.dockerignore` | Exclusions. `.gitignore` also excludes `data/uploads/` (photos uploaded through the app). |

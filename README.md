@@ -62,3 +62,25 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 
 The `data/` directory is bind-mounted so edits to the seed JSON survive rebuilds.
 Set `PORT` to override the default `3000`.
+
+Both files join the external network `web` — the shared network the Caddy reverse
+proxy sits on in production. It is not created by this project, so before the first
+local run:
+
+```bash
+docker network create web
+```
+
+## Deployment
+
+The container joins `web`, and Caddy proxies the domain to it by container name:
+
+```caddyfile
+komteksvinklubb.online, www.komteksvinklubb.online {
+    reverse_proxy vinlotteri-app:3000
+}
+```
+
+One line covers everything — the same Express process serves the API, the uploaded
+images and the built frontend. Create `.env` (from `.env.example`) on the server
+first; it is gitignored, and compose will not start without it.
