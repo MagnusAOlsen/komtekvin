@@ -33,12 +33,18 @@ body {
   /* A warm, festive gradient so the page has colour without hurting readability. */
   background: linear-gradient(135deg, #fdeef0 0%, #f3e9ff 45%, #fff5e0 100%);
   background-attachment: fixed;
+  /* dvh follows the *visible* area as iOS Safari's address bar and toolbar slide
+     in and out; plain vh is the full screen height there, which would push the
+     bottom of the layout (the sponsor tag) in behind the browser chrome.
+     The vh line stays first as a fallback for browsers without dvh. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -241,6 +247,7 @@ body {
   right: 0;
   transform: translateX(32%);
   height: min(72vh, 640px);
+  height: min(72dvh, 640px);
   width: auto;
   z-index: 0;
   opacity: 0.3;
@@ -454,6 +461,7 @@ body {
 .wheel-stage {
   position: relative;
   width: min(80vw, 46vh, 560px);
+  width: min(80vw, 46dvh, 560px);
   aspect-ratio: 1;
 }
 
@@ -1164,6 +1172,32 @@ body {
 
   .page h1 {
     font-size: 1.6rem;
+  }
+
+  /* The wheel column has to fit heading + wheel + button + hint + the winner
+     announcement on one screen, otherwise the winner appears below the fold —
+     behind the fixed nav — at the very moment it matters. Tighter gaps and a
+     wheel bounded by the visible height (dvh) keep the whole draw in view. */
+  .wheel {
+    gap: 12px;
+  }
+
+  .wheel-stage {
+    width: min(72vw, 34vh, 420px);
+    width: min(72vw, 34dvh, 420px);
+  }
+
+  .admin-hint {
+    margin-top: 0;
+    font-size: 0.9rem;
+  }
+
+  .winner-label {
+    font-size: 0.9rem;
+  }
+
+  .winner-name {
+    font-size: 2rem;
   }
 
   .payment-instruction {
