@@ -1,0 +1,17 @@
+node_modules
+dist
+server-dist
+.git
+.env
+.env.*
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.local.yml
+README.md
+CLAUDE.md
+vinlotteri_prompt.md
+webint_program
+images
+.DS_Store

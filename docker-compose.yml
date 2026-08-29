@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    container_name: vinlotteri-app
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - PORT=3000
+    # Injects PASSWORD (admin password) from .env on the host at deploy time.
+    # .env is gitignored and dockerignored, so the secret never enters the image.
+    env_file:
+      - .env
+    volumes:
+      # Bind-mount the JSON "database" so edits to the seed files survive rebuilds.
+      - ./data:/app/data
+    networks:
+      - vinlotteri
+
+networks:
+  vinlotteri:

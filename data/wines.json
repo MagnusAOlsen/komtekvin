@@ -1,0 +1,85 @@
+[
+  {
+    "id": 1,
+    "name": "Barolo Riserva",
+    "winner": "Navn 2",
+    "year": 2016,
+    "location": "Piemonte, Italia",
+    "date": "15.08.2026",
+    "price": "349 kr",
+    "keywords": ["kraftig", "tanninrik", "rød"],
+    "description": "En kraftig og elegant Nebbiolo med lang ettersmak og toner av kirsebær, roser og lakris.",
+    "img": "/img/pouring_wine.png"
+  },
+  {
+    "id": 2,
+    "name": "Whispering Angel Rosé",
+    "winner": "Navn 4",
+    "year": 2022,
+    "location": "Provence, Frankrike",
+    "date": "22.08.2026",
+    "price": "229 kr",
+    "keywords": ["frisk", "bær", "rosé"],
+    "description": "Lett og forfriskende rosé med toner av jordbær, fersken og sitrus.",
+    "img": "/img/happy_wine.png"
+  },
+  {
+    "id": 3,
+    "name": "Cloudy Bay Sauvignon Blanc",
+    "winner": "Navn 1",
+    "year": 2023,
+    "location": "Marlborough, New Zealand",
+    "date": "29.08.2026",
+    "price": "279 kr",
+    "keywords": ["sitrus", "urter", "hvit"],
+    "description": "Aromatisk hvitvin med markant syre og smak av pasjonsfrukt, lime og friske urter.",
+    "img": "/img/cat_2.png"
+  },
+  {
+    "id": 4,
+    "name": "Amarone della Valpolicella",
+    "winner": "Navn 2",
+    "year": 2018,
+    "location": "Veneto, Italia",
+    "date": "05.09.2026",
+    "price": "429 kr",
+    "keywords": ["fyldig", "tørket frukt", "rød"],
+    "description": "Rik og varmende rødvin laget på tørkede druer, med smak av rosiner, sjokolade og krydder.",
+    "img": "/img/old_lady.webp"
+  },
+  {
+    "id": 5,
+    "name": "Champagne Brut",
+    "winner": "Navn 6",
+    "year": 2019,
+    "location": "Champagne, Frankrike",
+    "date": "12.09.2026",
+    "price": "499 kr",
+    "keywords": ["boblende", "elegant", "musserende"],
+    "description": "Klassisk champagne med fine bobler og toner av brioche, eple og sitrus.",
+    "img": "/img/cat.png"
+  },
+  {
+    "id": 6,
+    "name": "Chablis Premier Cru",
+    "winner": "Navn 3",
+    "year": 2021,
+    "location": "Bourgogne, Frankrike",
+    "date": "19.09.2026",
+    "price": "319 kr",
+    "keywords": ["mineralsk", "frisk", "hvit"],
+    "description": "Tørr og mineralsk Chardonnay med preg av grønne epler, sitron og våt stein."
+  },
+  {
+    "id": 7,
+    "name": "Rioja Gran Reserva",
+    "winner": "Navn 2",
+    "year": 2015,
+    "location": "Rioja, Spania",
+    "date": "26.09.2026",
+    "price": "359 kr",
+    "keywords": ["moden", "vanilje", "rød"],
+    "description": "Lagret Tempranillo med myke tanniner og toner av vanilje, lær og modne røde bær.",
+    "img": "/img/happy_wine.png"
+  }
+]

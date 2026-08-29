@@ -1,0 +1,11 @@
+node_modules
+dist
+server-dist
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Wine photos uploaded through the app (live in the mounted data volume)
+data/uploads/

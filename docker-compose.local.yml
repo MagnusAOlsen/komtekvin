@@ -1,0 +1,15 @@
+# Local development overlay.
+# Usage:  docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+# Publishes the app on http://localhost:3000/ and bind-mounts data/ so edits to
+# the seed JSON are picked up on the next request.
+#
+# Note: this runs the production build (Express serving the built client). For
+# live frontend editing with hot-reload, use `npm run dev` on the host instead.
+services:
+  app:
+    container_name: vinlotteri-app-local
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    restart: "no"

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Navn 1",
+    "timesPlayed": 8,
+    "timesWon": 4
+  },
+  {
+    "name": "Navn 2",
+    "timesPlayed": 7,
+    "timesWon": 3
+  },
+  {
+    "name": "Navn 3",
+    "timesPlayed": 5,
+    "timesWon": 1
+  },
+  {
+    "name": "Navn 4",
+    "timesPlayed": 6,
+    "timesWon": 1
+  },
+  {
+    "name": "Navn 5",
+    "timesPlayed": 4,
+    "timesWon": 0
+  },
+  {
+    "name": "Navn 6",
+    "timesPlayed": 3,
+    "timesWon": 1
+  },
+  {
+    "name": "Magnus",
+    "timesPlayed": 2,
+    "timesWon": 1
+  },
+  {
+    "name": "Maren",
+    "timesPlayed": 2,
+    "timesWon": 1
+  },
+  {
+    "name": "yoyo",
+    "timesPlayed": 0,
+    "timesWon": 0
+  }
+]
