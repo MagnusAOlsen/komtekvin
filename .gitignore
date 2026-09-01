@@ -9,3 +9,4 @@ server-dist
 
 # Wine photos uploaded through the app (live in the mounted data volume)
 data/uploads/
+data/*.json
