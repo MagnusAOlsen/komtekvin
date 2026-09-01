@@ -1,7 +1,7 @@
 import { useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import { useStrings } from '../i18n';
 import { useAdmin } from '../admin';
-import { addWine } from '../api';
+import { addWine, updateWine, fetchPlayers } from '../api';
 import type { Wine } from '../types';
 
 /** Strips the "data:image/png;base64," prefix — the server stores raw base64. */
@@ -20,37 +20,53 @@ function isoToDisplayDate(iso: string): string {
   return year && month && day ? `${day}.${month}.${year}` : '';
 }
 
+/** The inverse, for prefilling the date input when editing an existing wine. */
+function displayDateToIso(display: string): string {
+  const [day, month, year] = display.split('.');
+  return year && month && day ? `${year}-${month}-${day}` : '';
+}
+
 function todayIso(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-interface AddWineFormProps {
-  /** The player the wine is logged against — fixed, since this opens from their page. */
+interface WineFormProps {
+  /** The wine being edited; omitted when logging a new one. */
+  wine?: Wine;
+  /** The player the wine is logged against. In edit mode this is only the initial value. */
   winner: string;
   onClose: () => void;
   onSaved: (wine: Wine) => void;
 }
 
-// Modal form for logging a wine, mirroring the reference project's "add wine"
+// Modal form for logging a wine, and for editing one afterwards so a description
+// or photo can be filled in later. Mirrors the reference project's "add wine"
 // interaction: a centred card over a backdrop, one field per property and a
 // click-or-drop image picker with a live preview.
-export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
+export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
   const t = useStrings();
   const { password } = useAdmin();
-  const [name, setName] = useState('');
-  const [year, setYear] = useState('');
-  const [location, setLocation] = useState('');
-  const [date, setDate] = useState(todayIso());
-  const [price, setPrice] = useState('');
-  const [keywords, setKeywords] = useState('');
-  const [description, setDescription] = useState('');
+  const editing = wine !== undefined;
+  const [name, setName] = useState(wine?.name ?? '');
+  const [chosenWinner, setChosenWinner] = useState(wine?.winner ?? winner);
+  const [year, setYear] = useState(wine?.year ? String(wine.year) : '');
+  const [location, setLocation] = useState(wine?.location ?? '');
+  const [date, setDate] = useState(
+    wine?.date ? displayDateToIso(wine.date) || todayIso() : todayIso(),
+  );
+  const [price, setPrice] = useState(wine?.price ?? '');
+  const [keywords, setKeywords] = useState(wine?.keywords?.join(', ') ?? '');
+  const [description, setDescription] = useState(wine?.description ?? '');
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  // Seeded with the stored photo so an edit shows what is already there.
+  const [preview, setPreview] = useState<string | null>(wine?.img ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Only needed for the winner picker, so it is fetched only when editing.
+  const [players, setPlayers] = useState<string[]>([]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -60,12 +76,15 @@ export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Object URLs must be revoked, otherwise each pick leaks the previous blob.
   useEffect(() => {
-    if (!file) {
-      setPreview(null);
-      return;
-    }
+    if (!editing) return;
+    fetchPlayers().then((roster) => setPlayers(roster.map((player) => player.name)));
+  }, [editing]);
+
+  // Object URLs must be revoked, otherwise each pick leaks the previous blob.
+  // Only blobs we created here — never the stored /uploads/ URL we started with.
+  useEffect(() => {
+    if (!file) return;
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
@@ -82,22 +101,23 @@ export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
     e.preventDefault();
     if (!name.trim() || !password || saving) return;
     setSaving(true);
-    const result = await addWine(
-      {
-        name: name.trim(),
-        winner,
-        year,
-        location,
-        date: isoToDisplayDate(date),
-        price,
-        keywords,
-        description,
-        ...(file
-          ? { imageData: await fileToBase64(file), imageExt: file.name.split('.').pop() ?? '' }
-          : {}),
-      },
-      password,
-    );
+    const input = {
+      name: name.trim(),
+      winner: chosenWinner,
+      year,
+      location,
+      date: isoToDisplayDate(date),
+      price,
+      keywords,
+      description,
+      // Sent only when a new photo was picked; otherwise the server keeps the old one.
+      ...(file
+        ? { imageData: await fileToBase64(file), imageExt: file.name.split('.').pop() ?? '' }
+        : {}),
+    };
+    const result = wine
+      ? await updateWine(wine.id, input, password)
+      : await addWine(input, password);
     setSaving(false);
     if (result.ok) {
       onSaved(result.wine);
@@ -106,13 +126,16 @@ export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
     }
   }
 
+  // The current winner may have been taken off the roster, so keep them listed.
+  const winnerOptions = players.includes(chosenWinner) ? players : [chosenWinner, ...players];
+
   return (
     <div className="backdrop" onClick={onClose}>
       <form className="full-wine add-wine" onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="full-wine-close" aria-label={t.wines.cancel} onClick={onClose}>
           ✕
         </button>
-        <h2>{t.wines.addWineHeading(winner)}</h2>
+        <h2>{editing ? t.wines.editWineHeading(wine.name) : t.wines.addWineHeading(winner)}</h2>
 
         <input
           className="add-wine-input"
@@ -122,6 +145,22 @@ export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
           aria-label={t.wines.fieldName}
           onChange={(e) => setName(e.target.value)}
         />
+        {editing && (
+          // A picker rather than free text: a collection is derived by matching
+          // this name exactly, so a typo would orphan the bottle.
+          <select
+            className="add-wine-input"
+            value={chosenWinner}
+            aria-label={t.wines.fieldWinner}
+            onChange={(e) => setChosenWinner(e.target.value)}
+          >
+            {winnerOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="add-wine-row">
           <input
             className="add-wine-input"
@@ -183,7 +222,7 @@ export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
           {preview ? (
             <>
               <img className="add-wine-preview" src={preview} alt="" />
-              <span className="add-wine-file-name">{file?.name}</span>
+              <span className="add-wine-file-name">{file?.name ?? t.wines.imageChange}</span>
             </>
           ) : (
             <span className="add-wine-file-hint">{t.wines.imageHint}</span>
@@ -198,7 +237,9 @@ export function AddWineForm({ winner, onClose, onSaved }: AddWineFormProps) {
         {error ? (
           <p className="add-wine-error">{error}</p>
         ) : (
-          <p className="add-wine-note">{t.wines.addWineNote(winner)}</p>
+          <p className="add-wine-note">
+            {editing ? t.wines.editWineNote : t.wines.addWineNote(winner)}
+          </p>
         )}
 
         <div className="add-wine-actions">

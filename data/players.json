@@ -1,7 +1,22 @@
 [
   {
     "name": "Komtek Komteksen",
-    "timesPlayed": 1,
+    "timesPlayed": 2,
+    "timesWon": 2
+  },
+  {
+    "name": "magnus",
+    "timesPlayed": 3,
+    "timesWon": 1
+  },
+  {
+    "name": "maren",
+    "timesPlayed": 3,
+    "timesWon": 0
+  },
+  {
+    "name": "Alfred",
+    "timesPlayed": 3,
     "timesWon": 1
   }
 ]

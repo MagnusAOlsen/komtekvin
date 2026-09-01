@@ -14,9 +14,14 @@ export function WineListPage() {
     fetchWines().then(setWines);
   }, []);
 
+  // An admin edit can change any field, so swap the whole wine in by id.
+  function handleUpdated(updated: Wine) {
+    setWines((current) => current.map((wine) => (wine.id === updated.id ? updated : wine)));
+  }
+
   return (
     <section className="page wines-page">
-      <WineGrid wines={wines} emptyText={t.wines.empty} />
+      <WineGrid wines={wines} emptyText={t.wines.empty} onWineUpdated={handleUpdated} />
     </section>
   );
 }

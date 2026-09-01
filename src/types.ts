@@ -17,6 +17,13 @@ export interface Wine {
   img?: string | null;
 }
 
+/** One participant on the wheel; the wedge angle is proportional to `tickets`. */
+export interface WheelEntry {
+  name: string;
+  /** Tickets (lodd) held — always an integer >= 1. A win spends one. */
+  tickets: number;
+}
+
 export interface PlayerStats {
   name: string;
   timesPlayed: number;

@@ -270,6 +270,7 @@ body {
   max-width: min(1600px, 100%);
 }
 
+
 .page h1 {
   color: var(--wine-red);
   font-size: clamp(2rem, 2.4vw, 3rem);
@@ -592,6 +593,146 @@ body {
   }
 }
 
+/* ---------- Colour legend (crowded wheel only) ---------- */
+/* Three columns so the wheel stays dead centre however wide the legend gets: the
+   legend sits in the first, the third is an empty mirror of it. The two side
+   columns are always equal, and minmax(0, …) lets them shrink rather than push
+   the wheel off centre on a narrow desktop window. With no legend the grid has a
+   single child in the middle column, which is the layout the page always had. */
+.wheel-layout {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 40px);
+}
+
+.wheel-main {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The legend takes the slot the left cat occupies — see the :has() rule in the
+   desktop media query, which hides that cat whenever this element exists.
+   An explicit width, not width:100%: pinned to the end of a column that is free to
+   be narrower than it, the panel keeps its size and simply reaches further left,
+   into the space the hidden cat left behind. That is what keeps the page the same
+   width in both modes, so neither the wheel nor the right-hand cat ever moves when
+   the ninth ticket flips the wheel over to colours. */
+.wheel-legend {
+  grid-column: 1;
+  justify-self: end;
+  /* Same clamp(floor, vw, ceiling) idiom as the rest of the sheet, so the panel
+     grows with a big monitor instead of sitting at a fixed width. */
+  width: clamp(150px, 15vw, 320px);
+  max-height: min(60vh, 640px);
+  overflow-y: auto;
+  padding: clamp(12px, 1vw, 20px) clamp(14px, 1.2vw, 24px);
+  text-align: left;
+  background: var(--cream);
+  border: 2px solid var(--wine-red);
+  border-radius: 12px;
+  box-shadow: 0 8px 22px var(--wine-red-tint);
+}
+
+.legend-heading {
+  margin: 0 0 10px;
+  font-size: clamp(0.9rem, 1vw, 1.05rem);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grape);
+}
+
+.legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(0.9rem, 0.95vw, 1.05rem);
+}
+
+.legend-swatch {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.legend-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.legend-tickets {
+  flex: none;
+  color: var(--grape);
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Phone-only opener. Outlined rather than filled so it never competes with the
+   spin button right above it. */
+.legend-open {
+  /* Clear space under the spin button so the two are not read as one control. */
+  margin-top: clamp(18px, 1.8vw, 30px);
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: clamp(0.95rem, 1.1vw, 1.15rem);
+  color: var(--wine-red);
+  background: var(--cream);
+  border: 2px solid var(--wine-red);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.legend-open:active {
+  transform: translateY(1px);
+}
+
+/* The overlay's card. Mirrors .full-wine, but sized for a list of names. */
+.legend-panel {
+  position: relative;
+  background: var(--cream);
+  border: 3px solid var(--wine-red);
+  border-radius: 12px;
+  padding: clamp(24px, 2.2vw, 40px);
+  max-width: min(420px, 100%);
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  text-align: left;
+}
+
+.legend-panel h2 {
+  margin: 0 0 16px;
+  color: var(--wine-red);
+}
+
+/* The winner's colour, so someone who only knows their colour sees they won. */
+.winner-swatch {
+  display: inline-block;
+  vertical-align: middle;
+  width: 0.75em;
+  height: 0.75em;
+  margin-right: 0.35em;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
 /* ---------- Wine list ---------- */
 .player-heading {
   display: flex;
@@ -624,6 +765,9 @@ body {
 
 .wine-card {
   font-family: inherit;
+  /* The card is a <button>: without this its uncoloured text falls back to the
+     UA `buttontext`/accent colour, which iOS renders blue. */
+  color: inherit;
   text-align: left;
   background: var(--cream);
   border: 2px solid var(--wine-red);
@@ -673,6 +817,8 @@ body {
 
 .wine-winner {
   margin: 4px 0;
+  /* Pinned rather than inherited so the winner's name is black on every platform. */
+  color: #2a1a1a;
 }
 
 .wine-keywords {
@@ -786,6 +932,47 @@ body {
   font-size: clamp(0.95rem, 1vw, 1.1rem);
 }
 
+/* The chip's wedge colour, matching the legend swatch. */
+.roster-swatch {
+  flex: none;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+/* − / + steppers and the count between them, sitting inside a roster chip. */
+.roster-ticket {
+  font-family: inherit;
+  font-size: 1em;
+  line-height: 1;
+  padding: 3px 8px;
+  color: var(--wine-red);
+  background: transparent;
+  border: 1px solid var(--wine-red-tint);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.roster-ticket:hover:not(:disabled) {
+  background: var(--wine-red);
+  color: #fff;
+}
+
+.roster-ticket:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.roster-tickets {
+  color: var(--grape);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  min-width: 4.5em;
+  text-align: center;
+}
+
 .roster-remove {
   font-family: inherit;
   font-size: 0.85em;
@@ -825,6 +1012,12 @@ body {
   border-radius: 8px;
   background: var(--cream);
   min-width: 180px;
+}
+
+/* Just wide enough for a one- or two-digit ticket count next to the name field. */
+.roster-input--tickets {
+  min-width: 0;
+  width: 5.5em;
 }
 
 .roster-add {
@@ -886,6 +1079,11 @@ body {
   overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   text-align: left;
+}
+
+/* Admin-only edit action, pinned to the end of the modal's content. */
+.full-wine-edit {
+  margin-top: 16px;
 }
 
 .full-wine h2 {
@@ -1144,8 +1342,53 @@ body {
 /* ---------- Responsive ---------- */
 /* Hide the flanking cats when the viewport is too narrow to fit them beside
    the content without overlapping it. */
+/* 900px is the desktop/mobile split for the flanking columns: below it the cats
+   go, and so does the legend column — replaced by the button that opens it over
+   the whole screen. */
 @media (max-width: 900px) {
   .side-cat {
+    display: none;
+  }
+}
+
+/* The legend column and the button that replaces it swap at 1200px, not at the
+   900px cat breakpoint: the column is carved out of the page's own width, and
+   below ~1200 there is not enough left for it to hold a name on one line. Under
+   that the button and its full-screen overlay serve every width, desktop
+   included. */
+@media (max-width: 1199px) {
+  .wheel-legend {
+    display: none;
+  }
+
+  .wheel-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .wheel-main {
+    grid-column: 1;
+  }
+}
+
+@media (min-width: 1200px) {
+  /* The legend takes the left cat's place, but only on a wheel crowded enough to
+     have a legend at all — which App.tsx cannot know, since the roster lives in
+     WheelPage. .wheel-legend is in the DOM exactly when it should be, so match on
+     that instead of threading the count up.
+     visibility rather than display: the cat's slot has to keep its width, or the
+     row would centre [content][right cat] as a pair and drag everything left. */
+  .centered-row:has(.wheel-legend) .side-cat--left {
+    visibility: hidden;
+  }
+
+  /* The page keeps its default width in both modes — the legend reaches into the
+     hidden cat's space rather than being carved out of the page — so the wheel and
+     the right-hand cat sit in exactly the same place whether the wheel is showing
+     names or colours.
+
+     The button is the legend column's stand-in, so exactly one of them shows. */
+  .legend-open,
+  .legend-overlay {
     display: none;
   }
 }

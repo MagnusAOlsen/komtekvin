@@ -3,9 +3,16 @@ import type { Wine } from '../types';
 import { useStrings } from '../i18n';
 import { BottlePlaceholder } from './BottlePlaceholder';
 
+interface WineModalProps {
+  wine: Wine;
+  onClose: () => void;
+  /** Opens the edit form. Passed only in ADMIN mode; the button is hidden otherwise. */
+  onEdit?: () => void;
+}
+
 // Centered detail modal with a backdrop, mirroring the reference project's
 // showFullWine() interaction. Closes on backdrop click, the ✕ button, or Escape.
-export function WineModal({ wine, onClose }: { wine: Wine; onClose: () => void }) {
+export function WineModal({ wine, onClose, onEdit }: WineModalProps) {
   const t = useStrings();
 
   useEffect(() => {
@@ -54,6 +61,11 @@ export function WineModal({ wine, onClose }: { wine: Wine; onClose: () => void }
           </p>
         )}
         {wine.description && <p>{wine.description}</p>}
+        {onEdit && (
+          <button type="button" className="add-wine-button full-wine-edit" onClick={onEdit}>
+            {t.wines.editWine}
+          </button>
+        )}
       </div>
     </div>
   );

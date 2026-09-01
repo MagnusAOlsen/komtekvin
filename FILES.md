@@ -42,7 +42,7 @@ bind-mounted in Docker, so its contents survive image rebuilds.
 
 | File | Contents |
 | --- | --- |
-| `wheelNames.json` | `string[]` — the names currently on the wheel. |
+| `wheelNames.json` | `{ name, tickets }[]` — who is on the wheel and how many tickets (lodd) each holds; the wedge angle is proportional to `tickets`. A legacy `string[]` file is still read, giving every name one ticket. |
 | `players.json` | `{ name, timesPlayed, timesWon }[]` — the stats roster. Counters are **stored**; a player's wine collection is **derived** at read time. |
 | `wines.json` | `{ id, name, winner, year, location, date, price, keywords, description, img }[]` — the giveaway log. `winner` is the join key that produces a player's collection. |
 | `spinLog.json` | `{ winner, at }[]` — append-only history of recorded spins. |
@@ -68,16 +68,18 @@ via `process.loadEnvFile()`, falling back to the process environment in Docker.
 
 | Method + path | Auth | What it does |
 | --- | --- | --- |
-| `GET /api/wheel-names` | open | The wheel pool. |
+| `GET /api/wheel-names` | open | The wheel pool as `{ name, tickets }[]`. |
 | `GET /api/wines` | open | The full giveaway log. |
 | `GET /api/payment` | open | The Vipps amount/number. |
 | `GET /api/players` | open | Roster with each player's derived collection. |
 | `POST /api/admin/login` | — | Validates a password so the client can enter admin mode. `200` or `401`. |
-| `POST /api/spins/record` | admin | Records one round: `timesPlayed +1` for everyone on the wheel, `timesWon +1` for the winner, plus a `spinLog.json` entry. The only writer of those counters. |
+| `POST /api/spins/record` | admin | Records one round: `timesPlayed +1` for everyone on the wheel (once each, whatever their ticket count), `timesWon +1` for the winner, plus a `spinLog.json` entry. The only writer of those counters. Also spends one of the winner's tickets and answers with the refreshed wheel. |
 | `PUT /api/payment` | admin | Stores the amount (positive number or `null`) and Vipps number (validated against a digits/`+`/space pattern). |
 | `POST /api/wines` | admin | Logs a wine. Assigns the id and today's date, splits comma-separated keywords, and saves an attached base64 photo. `413` if the image is too large. |
-| `POST /api/wheel-names` | admin | Adds a name to the wheel **and** creates a zeroed stats row if the person is new. `409` if the name is already on the wheel. |
-| `DELETE /api/wheel-names/:name` | admin | Removes a name from the wheel only — the stats row, counters and won wines are deliberately left alone. |
+| `PUT /api/wines/:id` | admin | Edits a logged wine so a description or photo can be added later. Same field handling as the POST (they share `parseWineBody`); omitting `imageData` keeps the stored photo. `404` for an unknown id. |
+| `POST /api/wheel-names` | admin | Adds a name to the wheel with a ticket count (default 1) **and** creates a zeroed stats row if the person is new. `409` if the name is already on the wheel. |
+| `PATCH /api/wheel-names/:name` | admin | Sets how many tickets someone holds. `0` takes them off the wheel, like the DELETE below. |
+| `DELETE /api/wheel-names/:name` | admin | Removes a name from the wheel only, tickets and all — the stats row, counters and won wines are deliberately left alone. |
 | `GET /uploads/*` | open | Uploaded wine photos, served straight from `data/uploads/`. Registered before the SPA catch-all so these URLs never return `index.html`. |
 | `GET *` | open | In production only: serves `dist/index.html` so client-side routing works. |
 
@@ -108,11 +110,14 @@ Owns `wheelNames.json`.
 
 | Function | Purpose |
 | --- | --- |
-| `readWheelNames()` | The current pool. |
-| `writeWheelNames(names)` | *(private)* Persists the pool. |
+| `normalize(raw)` | *(private)* Coerces a stored value into a `WheelEntry`; a bare string becomes one ticket, which is what migrates the old `string[]` file in place. |
+| `readWheelEntries()` | The current pool, normalised. |
+| `writeWheelEntries(entries)` | *(private)* Persists the pool. |
 | `wheelNameExists(name)` | Case-insensitive membership test, used for the duplicate `409`. |
-| `addWheelName(name)` | Appends unless an equal name (ignoring case) is already there. |
-| `removeWheelName(name)` | Drops every case-insensitive match. Touches nothing else — stats survive. |
+| `addWheelEntry(name, tickets)` | Appends unless an equal name (ignoring case) is already there. |
+| `setTickets(name, tickets)` | Sets the ticket count outright; `0` or less removes the entry from the wheel. |
+| `consumeTicket(name)` | Spends one ticket when a spin is recorded; the winner leaves the wheel on their last one. |
+| `removeWheelName(name)` | Drops every case-insensitive match, tickets and all. Touches nothing else — stats survive. |
 
 ### `server/store/wines.ts`
 Owns `wines.json`. Exports the `Wine` type and `NewWine` (`Wine` without `id`).
@@ -121,6 +126,7 @@ Owns `wines.json`. Exports the `Wine` type and `NewWine` (`Wine` without `id`).
 | --- | --- |
 | `readWines()` | The whole giveaway log. |
 | `addWine(input)` | Appends one wine with the next free id (max + 1) and returns it. Because collections are derived from `winner`, this single write makes the bottle appear both in that player's collection and in the general list. |
+| `updateWine(id, patch)` | Replaces an existing wine's fields, keeping its id; `null` when the id is unknown. `img` is only overwritten when the patch carries it, so an edit without a new photo keeps the old one. Changing `winner` moves the bottle between collections but never touches the counters. |
 
 ### `server/store/spinLog.ts`
 Owns `spinLog.json`, the append-only history. Exports the `SpinEntry` type.
@@ -182,18 +188,32 @@ appears below.
 | `handleSave(e)` | *(inner)* PUTs the amount/number and reflects a saved/failed status. |
 
 #### `WheelPage.tsx`
-Middle page and the default view: the wheel itself, the winner announcement with
-full-screen confetti, and — in admin mode — the participant editor.
+Middle page and the default view: the wheel itself, the colour legend, the winner
+announcement with full-screen confetti, and — in admin mode — the participant editor.
 
 | Function | Purpose |
 | --- | --- |
-| `WheelPage()` | Loads the wheel names and owns the winner, spinning, and editor state. |
-| `handleWinner(name)` | *(inner)* Shows the winner and, only in admin mode, posts the result so the stats are updated. Non-admin spins are purely visual. |
-| `handleAdd(e)` | *(inner)* Adds a participant; shows a duplicate/failure message when the server refuses. |
+| `WheelPage()` | Loads the wheel entries and owns the winner, spinning, legend-overlay and editor state. `showLegend` (`entries.length > 0 && !namesFitOnWheel(totalTickets(entries))`) gates the legend column, the "Se hvilken farge du er" button and the overlay together — the legend exists exactly when the wheel has given up on names. |
+| `handleWinner(name, index)` | *(inner)* Shows the winner and, only in admin mode, posts the result so the stats are updated — then redraws from the wheel the server returns, one ticket lighter. Non-admin spins are purely visual and spend nothing. The winner's **colour is captured here**, before that await: recording the spin can drop them off the wheel, which invalidates their index. |
+| `handleAdd(e)` | *(inner)* Adds a participant with a ticket count; shows a duplicate/failure message when the server refuses. |
+| `handleTickets(name, tickets)` | *(inner)* The − / + steppers on a chip. `−` stops at one, since going to zero is what ✕ already does. |
 | `handleRemove(name)` | *(inner)* Confirms, then removes the name from the wheel (stats untouched). |
 
 The editor is disabled while the wheel is turning, since changing the list mid-spin
 would move the segment the pointer is travelling toward.
+
+The desktop legend and the button are both rendered whenever `showLegend` is true;
+**CSS alone** decides which is visible, so a resize needs no JS. They swap at
+**1200px**, not at the 900px cat breakpoint: the legend column is carved out of the
+page's own width, and below ~1200 there is too little left for it to hold a name on
+one line, so the button and its overlay serve every narrower width.
+
+The page body is wrapped in `.wheel-layout`, a `minmax(0, 1fr) auto minmax(0, 1fr)`
+grid: the legend sits in the first column and the third is an empty mirror of it, so
+the wheel stays dead centre however wide the legend gets. The other half of that
+symmetry is in the media query — the left cat is hidden with `visibility` rather than
+`display`, so its slot keeps its width and `.centered-row` does not centre
+`[content][right cat]` as a pair and drag everything left.
 
 #### `WineListPage.tsx`
 The general "Viner" page: fetches every wine and hands it to `WineGrid`.
@@ -201,6 +221,7 @@ The general "Viner" page: fetches every wine and hands it to `WineGrid`.
 | Function | Purpose |
 | --- | --- |
 | `WineListPage()` | Loads `wines.json` through the API and renders the grid. |
+| `handleUpdated(wine)` | *(inner)* Swaps an edited wine in by id, without a refetch. |
 
 #### `StatsPage.tsx`
 The table of everyone who has played. Read-only — the roster is edited on the
@@ -219,45 +240,68 @@ offers "+ Legg til vin".
 | --- | --- |
 | `PlayerWinesPage({ name, onBack })` | Finds the player in the roster and renders their wines. |
 | `handleSaved(wine)` | *(inner)* Closes the form and appends the new bottle to the visible collection without a refetch. |
+| `handleUpdated(wine)` | *(inner)* Swaps an edited wine in — or drops it from the list when the edit reassigned the winner, since a collection is derived from that field. |
 
 ### Components (`src/components/`)
 
 #### `Wheel.tsx`
-The wheel itself: an SVG rendered generically from a names array of **any** length,
-spun by a CSS transform transition.
+The wheel itself: an SVG rendered generically from an entries array of **any**
+length, spun by a CSS transform transition. Each participant gets **one** wedge,
+sized by their share of all tickets — 3 of 4 tickets is three quarters of the wheel —
+filled with their colour from `wheelColor()`. Names are drawn inside the wedges only
+while `namesFitOnWheel(total)` holds; above the threshold the wheel is wordless and
+`WheelLegend` identifies people instead.
 
 | Symbol | Purpose |
 | --- | --- |
-| `SEGMENT_COLORS`, `R`, `EXTRA_TURNS`, `SPIN_MS` | Alternating segment colours, the SVG radius, how many full turns precede the landing, and the spin duration. |
+| `R`, `EXTRA_TURNS`, `SPIN_MS` | The SVG radius, how many full turns precede the landing, and the spin duration. |
+| `Wedge` | One participant's slice: their entry plus its `start` and `span` in degrees. |
 | `polar(angleDeg, radius)` | Converts an angle measured clockwise from 12 o'clock (where the pointer sits) into SVG x/y. |
-| `Wheel({ names, onWinner, onSpinStart })` | Draws the segments, the labels and the pointer. |
-| `spin()` | *(inner)* Picks a winner uniformly over **all** names — past winners included — then computes the rotation that lands that segment under the pointer. |
+| `layout(entries)` | Turns ticket counts into consecutive wedges, plus the ticket total the draw is weighted by. |
+| `Wheel({ entries, onWinner, onSpinStart })` | Draws the wedges, the pointer and — under the ticket threshold only — the labels, with a `×N` marker above one ticket. |
+| `spin()` | *(inner)* Picks a winner **weighted by tickets** over all participants — past winners included — then computes the rotation that lands that wedge under the pointer. |
 | `handleTransitionEnd()` | *(inner)* Fires `onWinner` once the animation actually finishes. |
 
 #### `WineCard.tsx`
 One card in the grid: name centred at the top, then year/place/date, image, winner,
 keywords and description. Clicking it opens the modal.
 
+#### `WheelLegend.tsx`
+The colour → name map for a wheel too crowded to carry names. Rendered as a column
+beside the wheel on a computer and inside a full-screen overlay on a phone, both
+from the same list so the two can never drift.
+
+| Function | Purpose |
+| --- | --- |
+| `WheelLegend({ entries })` | The list: a colour swatch, the name and the ticket count per row. Sorted by name with `localeCompare('nb')` over a **copy that keeps each entry's original index**, since the swatch colour comes from the wedge position, not the display position. |
+| `WheelLegendOverlay({ entries, onClose })` | The phone version behind the "Se hvilken farge du er" button. Same backdrop interaction as `WineModal`: closes on backdrop click, the ✕, or Escape. |
+
 #### `WineGrid.tsx`
 The responsive card grid plus the shared detail modal; shows `emptyText` when there
-is nothing to list. Used by both the general list and a player's collection.
+is nothing to list. Used by both the general list and a player's collection. It also
+owns the admin edit flow — the modal's "Rediger" swaps in `WineForm` and the saved
+wine is handed back through `onWineUpdated`, so both pages get editing from here.
 
 #### `WineModal.tsx`
 The centred detail card over a backdrop, mirroring the reference project's
-interaction. Closes on backdrop click, the ✕, or Escape.
+interaction. Closes on backdrop click, the ✕, or Escape. The optional `onEdit` prop
+adds the "Rediger" button; it is passed only in admin mode.
 
-#### `AddWineForm.tsx`
-The admin-only "log a wine" modal, opened from a player's page. The winner is fixed
-to that player.
+#### `WineForm.tsx`
+The admin-only wine modal, in two modes. Without a `wine` prop it logs a new bottle
+from a player's page, with the winner fixed to that player. With one it edits an
+existing bottle — how a description or photo gets filled in later — prefilling every
+field and offering a winner picker.
 
 | Function | Purpose |
 | --- | --- |
 | `fileToBase64(file)` | Reads a picked file and strips the `data:…;base64,` prefix — the server stores raw base64. |
 | `isoToDisplayDate(iso)` | `"2026-08-28"` (what `<input type="date">` gives) → `"28.08.2026"` (what `wines.json` uses). |
+| `displayDateToIso(display)` | The inverse, for prefilling the date input when editing. |
 | `todayIso()` | Today in the date input's format, used as the default. |
-| `AddWineForm({ winner, onClose, onSaved })` | The form: name, year, date, place, price, keywords, description and a click-or-drop image picker with a live preview. |
+| `WineForm({ wine, winner, onClose, onSaved })` | The form: name, year, date, place, price, keywords, description and a click-or-drop image picker with a live preview, plus a winner `<select>` in edit mode. A picker rather than free text because the collection join matches `winner` exactly. |
 | `handleDrop(e)` | *(inner)* Accepts a dragged image file. |
-| `handleSubmit(e)` | *(inner)* Posts the wine (with the photo, if any) and reports "too large"/"failed". |
+| `handleSubmit(e)` | *(inner)* POSTs a new wine or PUTs an edit (with the photo, if any) and reports "too large"/"failed". |
 
 #### `AdminUnlock.tsx`
 The way into admin mode: a **fully transparent** button in the header's right
@@ -316,22 +360,36 @@ Every call to the backend, plus offline fallbacks so the UI always renders.
 
 | Symbol | Purpose |
 | --- | --- |
-| `FALLBACK_WHEEL_NAMES`, `FALLBACK_WINES`, `FALLBACK_PLAYERS`, `FALLBACK_PAYMENT` | Local sample data used when a fetch fails. |
+| `FALLBACK_WHEEL_ENTRIES`, `FALLBACK_WINES`, `FALLBACK_PLAYERS`, `FALLBACK_PAYMENT` | Local sample data used when a fetch fails. |
 | `fetchJson(url, fallback)` | *(private)* GET + parse, logging and falling back on any error. |
-| `fetchWheelNames()`, `fetchWines()`, `fetchPlayers()`, `fetchPayment()` | The four read endpoints. |
+| `fetchWheelEntries()`, `fetchWines()`, `fetchPlayers()`, `fetchPayment()` | The four read endpoints. |
 | `adminLogin(password)` | Validates a password; `true`/`false`. |
 | `savePayment(settings, password)` | PUTs the Vipps amount/number; `null` on failure. |
-| `WheelMutation` | `{ ok: true, names }` or `{ ok: false, reason: 'duplicate' \| 'failed' }`. |
-| `mutateWheelNames(url, init)` | *(private)* Shared POST/DELETE handling that maps `409` to `duplicate`. |
-| `addWheelName(name, password)` | Adds a participant (and their stats row). |
+| `WheelMutation` | `{ ok: true, entries }` or `{ ok: false, reason: 'duplicate' \| 'failed' }`. |
+| `mutateWheelNames(url, init)` | *(private)* Shared POST/PATCH/DELETE handling that maps `409` to `duplicate`. |
+| `addWheelName(name, tickets, password)` | Adds a participant with a ticket count (and their stats row). |
+| `setWheelTickets(name, tickets, password)` | Changes how much of the wheel someone covers; `0` removes them. |
 | `removeWheelName(name, password)` | Takes a participant off the wheel only. |
-| `NewWineInput`, `AddWineResult` | The add-wine payload, and its result (`too-large` vs `failed`). |
+| `NewWineInput`, `SaveWineResult` | The wine payload shared by add and edit, and its result (`too-large` vs `failed`). |
+| `saveWine(url, method, input, password)` | *(private)* Shared POST/PUT handling that maps `413` to `too-large`. |
 | `addWine(input, password)` | Logs a wine, optionally with a base64 photo. |
-| `recordSpin(winner, names, password)` | Records a spin result into the stats. |
+| `updateWine(id, input, password)` | Edits a logged wine; omitting the photo keeps the stored one. |
+| `recordSpin(winner, names, password)` | Records a spin result into the stats. Returns the refreshed wheel, since the server also spends the winner's ticket. |
+
+#### `src/wheelDisplay.ts`
+How the wheel presents its participants — the rules `Wheel`, `WheelLegend` and the
+admin roster chips all have to agree on.
+
+| Symbol | Purpose |
+| --- | --- |
+| `PALETTE` | *(private)* Twenty well-separated colours, ordered so neighbouring list positions (= neighbouring wedges) come from different colour families. The first three are the brand tokens from `:root`. |
+| `wheelColor(index)` | The colour for the participant at `index` in the entries array. Past the palette it walks the colour wheel by the golden angle, so an unbounded roster never repeats badly. |
+| `totalTickets(entries)` | Every ticket on the wheel — what the wedge angles are shares of. |
+| `namesFitOnWheel(tickets)` | Whether names still fit inside the wedges (`tickets <= 8`). Keyed on tickets rather than head count because the smallest wedge is `360/total`: three people holding 6 + 1 + 1 cramp a name just as badly as eight holding one each. |
 
 #### `src/types.ts`
-The domain types shared by the API layer and the UI: `Wine`, `PlayerStats`
-(record + derived `collection`) and `PaymentSettings`. They mirror the server's
+The domain types shared by the API layer and the UI: `Wine`, `WheelEntry`,
+`PlayerStats` (record + derived `collection`) and `PaymentSettings`. They mirror the server's
 types deliberately — the client never imports from `server/`.
 
 #### `src/images.ts`

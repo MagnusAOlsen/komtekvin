@@ -4,7 +4,7 @@ import { useAdmin } from '../admin';
 import type { PlayerStats, Wine } from '../types';
 import { fetchPlayers } from '../api';
 import { WineGrid } from '../components/WineGrid';
-import { AddWineForm } from '../components/AddWineForm';
+import { WineForm } from '../components/WineForm';
 import { IMG } from '../images';
 
 // A single player's collection — same layout as the Viner page, titled
@@ -33,6 +33,19 @@ export function PlayerWinesPage({ name, onBack }: { name: string; onBack: () => 
     );
   }
 
+  // A collection is derived from the wine's `winner`, so an edit that reassigns
+  // the winner moves the bottle out of this page and into the new owner's.
+  function handleUpdated(updated: Wine) {
+    setPlayer((current) => {
+      if (!current) return current;
+      const collection =
+        updated.winner === name
+          ? current.collection.map((wine) => (wine.id === updated.id ? updated : wine))
+          : current.collection.filter((wine) => wine.id !== updated.id);
+      return { ...current, collection };
+    });
+  }
+
   return (
     <section className="page wines-page">
       <button type="button" className="link-button back-button" onClick={onBack}>
@@ -50,11 +63,15 @@ export function PlayerWinesPage({ name, onBack }: { name: string; onBack: () => 
       )}
 
       {loaded && (
-        <WineGrid wines={player?.collection ?? []} emptyText={t.wines.playerEmpty(name)} />
+        <WineGrid
+          wines={player?.collection ?? []}
+          emptyText={t.wines.playerEmpty(name)}
+          onWineUpdated={handleUpdated}
+        />
       )}
 
       {adding && (
-        <AddWineForm winner={name} onClose={() => setAdding(false)} onSaved={handleSaved} />
+        <WineForm winner={name} onClose={() => setAdding(false)} onSaved={handleSaved} />
       )}
     </section>
   );

@@ -1,13 +1,13 @@
-import type { PaymentSettings, PlayerStats, Wine } from './types';
+import type { PaymentSettings, PlayerStats, WheelEntry, Wine } from './types';
 
 // Local fallbacks used when the backend is unreachable, so the UI always has
 // something to show. The backend serves the authoritative copies from data/.
-export const FALLBACK_WHEEL_NAMES: string[] = [
-  'Navn 1',
-  'Navn 2',
-  'Navn 3',
-  'Navn 4',
-  'Navn 5',
+export const FALLBACK_WHEEL_ENTRIES: WheelEntry[] = [
+  { name: 'Navn 1', tickets: 1 },
+  { name: 'Navn 2', tickets: 1 },
+  { name: 'Navn 3', tickets: 1 },
+  { name: 'Navn 4', tickets: 1 },
+  { name: 'Navn 5', tickets: 1 },
 ];
 
 export const FALLBACK_WINES: Wine[] = [
@@ -59,8 +59,8 @@ async function fetchJson<T>(url: string, fallback: T): Promise<T> {
   }
 }
 
-export function fetchWheelNames(): Promise<string[]> {
-  return fetchJson<string[]>('/api/wheel-names', FALLBACK_WHEEL_NAMES);
+export function fetchWheelEntries(): Promise<WheelEntry[]> {
+  return fetchJson<WheelEntry[]>('/api/wheel-names', FALLBACK_WHEEL_ENTRIES);
 }
 
 export function fetchWines(): Promise<Wine[]> {
@@ -118,7 +118,7 @@ export async function adminLogin(password: string): Promise<boolean> {
 
 /** Result of an admin write that returns the refreshed wheel pool. */
 export type WheelMutation =
-  | { ok: true; names: string[] }
+  | { ok: true; entries: WheelEntry[] }
   | { ok: false; reason: 'duplicate' | 'failed' };
 
 async function mutateWheelNames(url: string, init: RequestInit): Promise<WheelMutation> {
@@ -126,19 +126,38 @@ async function mutateWheelNames(url: string, init: RequestInit): Promise<WheelMu
     const res = await fetch(url, init);
     if (res.status === 409) return { ok: false, reason: 'duplicate' };
     if (!res.ok) return { ok: false, reason: 'failed' };
-    return { ok: true, names: (await res.json()) as string[] };
+    return { ok: true, entries: (await res.json()) as WheelEntry[] };
   } catch (err) {
     console.error(`Wheel update failed for ${url}`, err);
     return { ok: false, reason: 'failed' };
   }
 }
 
-// Adds a name to the wheel — and to the stats roster if it is new (admin only).
-export function addWheelName(name: string, password: string): Promise<WheelMutation> {
+// Adds a participant with a ticket count — and to the stats roster if the name
+// is new (admin only).
+export function addWheelName(
+  name: string,
+  tickets: number,
+  password: string,
+): Promise<WheelMutation> {
   return mutateWheelNames('/api/wheel-names', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, tickets }),
+  });
+}
+
+// Sets how many tickets someone holds, i.e. how much of the wheel they cover.
+// Zero takes them off the wheel entirely (admin only).
+export function setWheelTickets(
+  name: string,
+  tickets: number,
+  password: string,
+): Promise<WheelMutation> {
+  return mutateWheelNames(`/api/wheel-names/${encodeURIComponent(name)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+    body: JSON.stringify({ tickets }),
   });
 }
 
@@ -165,16 +184,14 @@ export interface NewWineInput {
   imageExt?: string;
 }
 
-export type AddWineResult =
+export type SaveWineResult =
   | { ok: true; wine: Wine }
   | { ok: false; reason: 'too-large' | 'failed' };
 
-// Logs a wine given away (admin only). It is written to wines.json, so it shows
-// up both in the winner's collection and in the general wine list.
-export async function addWine(input: NewWineInput, password: string): Promise<AddWineResult> {
+async function saveWine(url: string, method: 'POST' | 'PUT', input: NewWineInput, password: string): Promise<SaveWineResult> {
   try {
-    const res = await fetch('/api/wines', {
-      method: 'POST',
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
       body: JSON.stringify(input),
     });
@@ -182,21 +199,46 @@ export async function addWine(input: NewWineInput, password: string): Promise<Ad
     if (!res.ok) return { ok: false, reason: 'failed' };
     return { ok: true, wine: (await res.json()) as Wine };
   } catch (err) {
-    console.error('Failed to add wine', err);
+    console.error(`Failed to save wine via ${method} ${url}`, err);
     return { ok: false, reason: 'failed' };
   }
 }
 
-// Records a spin into the stats (admin only). Returns true on success.
-export async function recordSpin(winner: string, names: string[], password: string): Promise<boolean> {
+// Logs a wine given away (admin only). It is written to wines.json, so it shows
+// up both in the winner's collection and in the general wine list.
+export function addWine(input: NewWineInput, password: string): Promise<SaveWineResult> {
+  return saveWine('/api/wines', 'POST', input, password);
+}
+
+// Edits a wine already logged (admin only) — how a description or photo gets
+// filled in later. Omitting imageData keeps the stored photo. Changing `winner`
+// moves the bottle to another player's collection page.
+export function updateWine(
+  id: number,
+  input: NewWineInput,
+  password: string,
+): Promise<SaveWineResult> {
+  return saveWine(`/api/wines/${id}`, 'PUT', input, password);
+}
+
+// Records a spin into the stats (admin only). The server also spends the
+// winner's ticket, so it answers with the refreshed wheel — returned here, and
+// null on failure, so the page can redraw from the authoritative pool.
+export async function recordSpin(
+  winner: string,
+  names: string[],
+  password: string,
+): Promise<WheelEntry[] | null> {
   try {
     const res = await fetch('/api/spins/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
       body: JSON.stringify({ winner, names }),
     });
-    return res.ok;
+    if (!res.ok) return null;
+    const body = (await res.json()) as { wheel?: WheelEntry[] };
+    return body.wheel ?? null;
   } catch {
-    return false;
+    return null;
   }
 }

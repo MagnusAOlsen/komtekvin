@@ -2,11 +2,17 @@
   {
     "id": 1,
     "name": "Concha y Toro Frontera Cabernet Sauvignon",
-    "winner": "Komtek Komteksen",
+    "winner": "magnus",
     "location": "Central Valley, Chile",
     "date": "29.08.2026",
-    "keywords": ["fyldig", "mørke bær", "rød"],
+    "keywords": [
+      "fyldig",
+      "mørke bær",
+      "rød"
+    ],
     "description": "Chilensk Cabernet Sauvignon med smak av mørke bær, plomme og et hint av vanilje. Fyldig og myk, og god følgesvenn til rødt kjøtt.",
-    "img": "/img/cabernet_sauvignon.png"
+    "img": "/img/cabernet_sauvignon.png",
+    "year": null,
+    "price": ""
   }
 ]

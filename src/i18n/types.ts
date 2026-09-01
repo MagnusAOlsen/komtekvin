@@ -50,8 +50,25 @@ export interface LocaleStrings {
     /** Placeholder in the admin-only "add participant" field. */
     addPlaceholder: string;
     addName: string;
-    /** Explains that adding also fills the stats, while removing does not empty it. */
+    /** Explains adding, removing and how a win spends a ticket. */
     rosterNote: string;
+    /** The ×N marker drawn on a wedge held with more than one ticket. */
+    ticketBadge: (count: number) => string;
+    /** Ticket count on a roster chip and in the colour legend, e.g. "3 lodd". */
+    ticketCount: (count: number) => string;
+    /** Heading over the colour legend, both beside the wheel and in the overlay. */
+    colorsHeading: string;
+    /** The phone button that opens the colour legend over the whole screen. */
+    showColors: string;
+    closeColors: string;
+    /** Accessible label on a colour swatch, which is invisible to a screen reader. */
+    colorOf: (name: string) => string;
+    /** Placeholder / label on the ticket-count field in the add form. */
+    fieldTickets: string;
+    /** Accessible labels on a chip's − / + ticket steppers. */
+    removeTicket: (name: string) => string;
+    addTicket: (name: string) => string;
+    ticketsFailed: string;
     /** Accessible label / tooltip on a chip's remove button. */
     removeName: (name: string) => string;
     /** Confirmation shown before a name leaves the wheel. */
@@ -93,6 +110,14 @@ export interface LocaleStrings {
     imageTooLarge: string;
     /** Explains that the wine also lands in the general list. */
     addWineNote: (name: string) => string;
+    /** Admin-only "edit" button in the wine modal. */
+    editWine: string;
+    /** Heading of the form in edit mode, e.g. "Rediger Barolo Riserva". */
+    editWineHeading: (name: string) => string;
+    /** Label on the winner picker, shown only when editing. */
+    fieldWinner: string;
+    /** Warns that changing the winner moves the bottle to another collection. */
+    editWineNote: string;
   };
   stats: {
     heading: string;

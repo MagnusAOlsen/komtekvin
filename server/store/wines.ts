@@ -36,3 +36,18 @@ export async function addWine(input: NewWine): Promise<Wine> {
   await writeFile(dataFile(FILE), JSON.stringify(wines, null, 2) + '\n');
   return wine;
 }
+
+// Replaces the mutable fields of an existing wine, keeping its id. `img` is only
+// overwritten when the patch carries it, so an edit without a new photo keeps the
+// previously uploaded one. Returns null when the id is unknown. Admin-only (gated
+// in the route). Note this can move a bottle between collections — they are
+// derived by matching `winner` — but never touches the timesWon counters.
+export async function updateWine(id: number, patch: Partial<NewWine>): Promise<Wine | null> {
+  const wines = await readWines();
+  const index = wines.findIndex((w) => Number(w.id) === id);
+  if (index === -1) return null;
+  const wine: Wine = { ...wines[index], ...patch, id: wines[index].id };
+  wines[index] = wine;
+  await writeFile(dataFile(FILE), JSON.stringify(wines, null, 2) + '\n');
+  return wine;
+}
