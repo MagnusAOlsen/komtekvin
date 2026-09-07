@@ -67,3 +67,13 @@ export async function addPlayer(name: string): Promise<PlayerRecord[]> {
   players.push({ name, timesPlayed: 0, timesWon: 0 });
   return writePlayerRecords(players);
 }
+
+// Drops a player's row and its counters for good. Unlike taking a name off the
+// wheel — which deliberately keeps the stats row — this is the full removal, so
+// the route also clears them off the wheel and unassigns their wines. Matching
+// is case-insensitive, like addPlayer's duplicate check. Admin-only via the route.
+export async function removePlayer(name: string): Promise<PlayerRecord[]> {
+  const players = await readPlayerRecords();
+  const lower = name.toLowerCase();
+  return writePlayerRecords(players.filter((p) => p.name.toLowerCase() !== lower));
+}

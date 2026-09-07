@@ -17,6 +17,13 @@ export interface Wine {
 /** Everything a new giveaway entry needs; `id` is assigned here. */
 export type NewWine = Omit<Wine, 'id'>;
 
+/**
+ * Winner written on a bottle whose owner has been removed from the stats.
+ * It deliberately matches no player, so the wine keeps its place in the Viner
+ * list while belonging to nobody's collection until an admin reassigns it.
+ */
+export const UNASSIGNED_WINNER = 'ikke valgt';
+
 const FILE = 'wines.json';
 
 // Read/write access module for the giveaway log (data/wines.json).
@@ -50,4 +57,23 @@ export async function updateWine(id: number, patch: Partial<NewWine>): Promise<W
   wines[index] = wine;
   await writeFile(dataFile(FILE), JSON.stringify(wines, null, 2) + '\n');
   return wine;
+}
+
+// Hands every bottle won by `name` over to `UNASSIGNED_WINNER` — what removing
+// someone from the stats does to their collection. Matching is case-insensitive
+// so a row whose case drifted from the wine's `winner` is still caught.
+// Returns how many bottles were reassigned. Admin-only (gated in the route).
+export async function unassignWinesOf(name: string): Promise<number> {
+  const wines = await readWines();
+  const lower = name.toLowerCase();
+  let reassigned = 0;
+  for (const wine of wines) {
+    if (wine.winner.toLowerCase() !== lower) continue;
+    wine.winner = UNASSIGNED_WINNER;
+    reassigned += 1;
+  }
+  if (reassigned > 0) {
+    await writeFile(dataFile(FILE), JSON.stringify(wines, null, 2) + '\n');
+  }
+  return reassigned;
 }

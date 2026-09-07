@@ -242,3 +242,23 @@ export async function recordSpin(
     return null;
   }
 }
+
+// Removes a player from the stats for good (admin only): the row and its
+// counters go, their wines fall back to "ikke valgt", and they leave the wheel.
+// Returns the refreshed stats, or null if it failed.
+export async function removePlayer(
+  name: string,
+  password: string,
+): Promise<PlayerStats[] | null> {
+  try {
+    const res = await fetch(`/api/players/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-password': password },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as PlayerStats[];
+  } catch (err) {
+    console.error('Failed to remove player', err);
+    return null;
+  }
+}

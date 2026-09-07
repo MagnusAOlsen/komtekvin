@@ -846,7 +846,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   background: var(--cream);
-  min-width: 460px;
+  min-width: 360px;
 }
 
 .stats-table thead {
@@ -878,16 +878,143 @@ body {
   background: var(--gold-tint);
 }
 
-/* The collection column is centred under its heading, like the two count columns. */
-.stats-table td:last-child {
-  text-align: center;
-}
-
-/* Names are plain bold text — not links; the collection column navigates. */
+/* The name is the link into a player's page — it keeps the bold dark look of
+   the old plain-text cell and only gains the underline and pointer. */
 .player-name {
   font-size: clamp(1.05rem, 1.15vw, 1.3rem);
   font-weight: bold;
   color: #2a1a1a;
+}
+
+.player-name .link-button {
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.player-name .link-button:hover {
+  color: var(--wine-red);
+}
+
+/* Admin-only remove button in the stats table — same affordance as the wheel
+   roster's remove, sized for a table cell. */
+.stats-remove {
+  font-family: inherit;
+  font-size: 0.9em;
+  line-height: 1;
+  padding: 5px 8px;
+  color: var(--wine-red);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.stats-remove:hover {
+  background: var(--wine-red);
+  color: #fff;
+}
+
+/* ---------- A player's page: chart left, bottles right ---------- */
+/* Same left-column idea as .wheel-layout, minus the centring third column.
+   Named areas rather than source order, so the chart can move above the
+   heading on a phone while staying beside the bottles on a computer. */
+.player-layout {
+  width: 100%;
+  display: grid;
+  grid-template-columns: clamp(200px, 18vw, 320px) minmax(0, 1fr);
+  grid-template-areas:
+    'heading heading'
+    'chart   wines';
+  column-gap: clamp(16px, 2vw, 40px);
+  align-items: start;
+}
+
+.player-layout .player-heading {
+  grid-area: heading;
+  /* The heading spans the full grid row, so it needs its own centring — it no
+     longer inherits it from .page's align-items. */
+  justify-content: center;
+}
+
+.player-chart-col {
+  grid-area: chart;
+}
+
+/* Flex so the admin add button can centre itself over the grid. */
+.player-collection {
+  grid-area: wines;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-chart {
+  background: var(--cream);
+  border: 2px solid var(--wine-red);
+  border-radius: 10px;
+  padding: clamp(14px, 1.2vw, 24px);
+  text-align: center;
+}
+
+.player-chart-heading {
+  margin: 0;
+  color: var(--wine-red);
+  font-size: clamp(1.1rem, 1.15vw, 1.35rem);
+}
+
+.player-chart-ratio {
+  margin: 6px 0 0;
+  color: var(--grape);
+  font-size: clamp(2rem, 2.4vw, 3rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.player-chart-caption {
+  margin: 0 0 14px;
+  color: #7a6a6a;
+  font-size: clamp(0.9rem, 0.95vw, 1.05rem);
+}
+
+.player-chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.player-chart-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #55403f;
+  font-size: clamp(0.9rem, 0.95vw, 1.05rem);
+}
+
+.player-chart-label .num {
+  font-weight: bold;
+}
+
+.player-chart-track {
+  height: clamp(14px, 1.1vw, 20px);
+  border-radius: 4px;
+  background: var(--gold-tint);
+  overflow: hidden;
+}
+
+.player-chart-bar {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.player-chart-bar--played {
+  background: var(--gold);
+}
+
+.player-chart-bar--won {
+  background: var(--wine-red);
 }
 
 /* ---------- Roster editing on the wheel page (admin only) ---------- */
@@ -1346,6 +1473,21 @@ body {
    go, and so does the legend column — replaced by the button that opens it over
    the whole screen. */
 @media (max-width: 900px) {
+  /* Not enough room for a side column. The chart leads the page, above the
+     "{name} sine viner" heading, with the bottles under both. */
+  .player-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'chart'
+      'heading'
+      'wines';
+  }
+
+  .player-chart {
+    max-width: 420px;
+    margin: 0 auto 4px;
+  }
+
   .side-cat {
     display: none;
   }
@@ -1491,8 +1633,8 @@ body {
     font-size: 0.78rem;
   }
 
-  /* Shrink the two number columns (headers wrap) so Name/Collection get the
-     width; the single-digit data cells stay on one line. */
+  /* Shrink the two number columns (headers wrap) so the name gets the width;
+     the single-digit data cells stay on one line. */
   .stats-table th:nth-child(2),
   .stats-table th:nth-child(3),
   .stats-table td.num {

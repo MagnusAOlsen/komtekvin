@@ -35,8 +35,12 @@ function todayIso(): string {
 interface WineFormProps {
   /** The wine being edited; omitted when logging a new one. */
   wine?: Wine;
-  /** The player the wine is logged against. In edit mode this is only the initial value. */
-  winner: string;
+  /**
+   * The player the wine starts out logged against — the collection page passes
+   * its own player. Only ever an initial value: the winner is always pickable.
+   * Omitted when opened from the Viner page, where nobody is chosen yet.
+   */
+  winner?: string;
   onClose: () => void;
   onSaved: (wine: Wine) => void;
 }
@@ -50,7 +54,8 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
   const { password } = useAdmin();
   const editing = wine !== undefined;
   const [name, setName] = useState(wine?.name ?? '');
-  const [chosenWinner, setChosenWinner] = useState(wine?.winner ?? winner);
+  // Empty means "nobody picked yet" — only possible when opened from Viner.
+  const [chosenWinner, setChosenWinner] = useState(wine?.winner ?? winner ?? '');
   const [year, setYear] = useState(wine?.year ? String(wine.year) : '');
   const [location, setLocation] = useState(wine?.location ?? '');
   const [date, setDate] = useState(
@@ -65,7 +70,7 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // Only needed for the winner picker, so it is fetched only when editing.
+  // The roster behind the winner picker, which both modes now show.
   const [players, setPlayers] = useState<string[]>([]);
 
   useEffect(() => {
@@ -77,9 +82,8 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
   }, [onClose]);
 
   useEffect(() => {
-    if (!editing) return;
     fetchPlayers().then((roster) => setPlayers(roster.map((player) => player.name)));
-  }, [editing]);
+  }, []);
 
   // Object URLs must be revoked, otherwise each pick leaks the previous blob.
   // Only blobs we created here — never the stored /uploads/ URL we started with.
@@ -99,7 +103,7 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !password || saving) return;
+    if (!name.trim() || !chosenWinner || !password || saving) return;
     setSaving(true);
     const input = {
       name: name.trim(),
@@ -127,7 +131,8 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
   }
 
   // The current winner may have been taken off the roster, so keep them listed.
-  const winnerOptions = players.includes(chosenWinner) ? players : [chosenWinner, ...players];
+  const winnerOptions =
+    !chosenWinner || players.includes(chosenWinner) ? players : [chosenWinner, ...players];
 
   return (
     <div className="backdrop" onClick={onClose}>
@@ -135,7 +140,13 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
         <button type="button" className="full-wine-close" aria-label={t.wines.cancel} onClick={onClose}>
           ✕
         </button>
-        <h2>{editing ? t.wines.editWineHeading(wine.name) : t.wines.addWineHeading(winner)}</h2>
+        <h2>
+          {editing
+            ? t.wines.editWineHeading(wine.name)
+            : winner
+              ? t.wines.addWineHeading(winner)
+              : t.wines.addWineHeadingAny}
+        </h2>
 
         <input
           className="add-wine-input"
@@ -145,22 +156,26 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
           aria-label={t.wines.fieldName}
           onChange={(e) => setName(e.target.value)}
         />
-        {editing && (
-          // A picker rather than free text: a collection is derived by matching
-          // this name exactly, so a typo would orphan the bottle.
-          <select
-            className="add-wine-input"
-            value={chosenWinner}
-            aria-label={t.wines.fieldWinner}
-            onChange={(e) => setChosenWinner(e.target.value)}
-          >
-            {winnerOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        )}
+        {/* A picker rather than free text: a collection is derived by matching
+            this name exactly, so a typo would orphan the bottle. Shown in both
+            modes, so a wine can be logged for anyone from the Viner page. */}
+        <select
+          className="add-wine-input"
+          value={chosenWinner}
+          aria-label={t.wines.fieldWinner}
+          onChange={(e) => setChosenWinner(e.target.value)}
+        >
+          {!chosenWinner && (
+            <option value="" disabled>
+              {t.wines.chooseWinner}
+            </option>
+          )}
+          {winnerOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
         <div className="add-wine-row">
           <input
             className="add-wine-input"
@@ -238,7 +253,11 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
           <p className="add-wine-error">{error}</p>
         ) : (
           <p className="add-wine-note">
-            {editing ? t.wines.editWineNote : t.wines.addWineNote(winner)}
+            {editing
+              ? t.wines.editWineNote
+              : winner
+                ? t.wines.addWineNote(winner)
+                : t.wines.addWineNoteAny}
           </p>
         )}
 
@@ -246,7 +265,11 @@ export function WineForm({ wine, winner, onClose, onSaved }: WineFormProps) {
           <button type="button" className="add-wine-cancel" onClick={onClose}>
             {t.wines.cancel}
           </button>
-          <button type="submit" className="add-wine-save" disabled={saving || !name.trim()}>
+          <button
+            type="submit"
+            className="add-wine-save"
+            disabled={saving || !name.trim() || !chosenWinner}
+          >
             {saving ? t.wines.saving : t.wines.save}
           </button>
         </div>

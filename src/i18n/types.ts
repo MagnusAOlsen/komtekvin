@@ -89,10 +89,14 @@ export interface LocaleStrings {
     playerHeading: (name: string) => string;
     playerEmpty: (name: string) => string;
     back: string;
-    /** Admin-only "add wine" button on a player's collection page. */
+    /** Admin-only "add wine" button on a player's collection page and on Viner. */
     addWine: string;
     /** Heading of the add-wine form, e.g. "Ny vin til Navn 2". */
     addWineHeading: (name: string) => string;
+    /** Heading of the same form opened from Viner, where no winner is fixed yet. */
+    addWineHeadingAny: string;
+    /** Placeholder option in the winner picker while nobody is chosen. */
+    chooseWinner: string;
     fieldName: string;
     fieldYear: string;
     fieldLocation: string;
@@ -110,11 +114,13 @@ export interface LocaleStrings {
     imageTooLarge: string;
     /** Explains that the wine also lands in the general list. */
     addWineNote: (name: string) => string;
+    /** The same, when the winner is picked in the form rather than fixed. */
+    addWineNoteAny: string;
     /** Admin-only "edit" button in the wine modal. */
     editWine: string;
     /** Heading of the form in edit mode, e.g. "Rediger Barolo Riserva". */
     editWineHeading: (name: string) => string;
-    /** Label on the winner picker, shown only when editing. */
+    /** Label on the winner picker. */
     fieldWinner: string;
     /** Warns that changing the winner moves the bottle to another collection. */
     editWineNote: string;
@@ -125,11 +131,22 @@ export interface LocaleStrings {
     colName: string;
     colPlayed: string;
     colWon: string;
-    colCollection: string;
-    /** Link text in the collection column, e.g. "Se 3 viner". */
-    viewCollection: (count: number) => string;
-    noCollection: string;
     empty: string;
+    /** Header of the admin-only remove column. */
+    colRemove: string;
+    /** Accessible label / tooltip on a row's remove button. */
+    removePlayer: (name: string) => string;
+    /** Confirmation shown before a player leaves the stats for good. */
+    confirmRemovePlayer: (name: string) => string;
+    removeFailed: string;
+    /** Heading over the play/win line chart on a player's page. */
+    chartHeading: string;
+    /** The wins-per-game share as a percentage, e.g. "33 %". */
+    chartRatio: (percent: number) => string;
+    /** Caption under the chart, e.g. "1 av 3 spill". */
+    chartCaption: (won: number, played: number) => string;
+    /** Shown instead of the bars when the player has no rounds yet. */
+    chartEmpty: string;
   };
   sponsor: {
     prefix: string;

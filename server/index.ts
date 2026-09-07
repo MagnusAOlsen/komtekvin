@@ -9,8 +9,20 @@ import {
   consumeTicket,
   wheelNameExists,
 } from './store/wheelNames.js';
-import { readWines, addWine, updateWine, type NewWine } from './store/wines.js';
-import { readPlayers, computeStats, recordRound, addPlayer } from './store/players.js';
+import {
+  readWines,
+  addWine,
+  updateWine,
+  unassignWinesOf,
+  type NewWine,
+} from './store/wines.js';
+import {
+  readPlayers,
+  computeStats,
+  recordRound,
+  addPlayer,
+  removePlayer,
+} from './store/players.js';
 import { appendSpin } from './store/spinLog.js';
 import { readPayment, writePayment } from './store/payment.js';
 import { saveWineImage, ImageTooLargeError, UPLOAD_DIR } from './store/uploads.js';
@@ -346,6 +358,33 @@ app.delete('/api/wheel-names/:name', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Failed to remove wheel name', err);
     res.status(500).json({ error: 'Could not remove name' });
+  }
+});
+
+// Removes a player from the stats for good — the counterpart to the wheel's
+// soft remove above, which keeps the row. Three writes, in this order:
+// the stats row goes, their bottles fall back to `ikke valgt` so the Viner list
+// keeps them, and they come off the wheel too — otherwise the next recorded
+// spin would recreate the row via recordRound(). Answers with the refreshed
+// stats so the page can redraw from the authoritative list. Admin only.
+app.delete('/api/players/:name', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: 'Admin only' });
+    return;
+  }
+  const name = req.params.name.trim();
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+  try {
+    await removePlayer(name);
+    await unassignWinesOf(name);
+    await removeWheelName(name);
+    res.json(await currentStats());
+  } catch (err) {
+    console.error('Failed to remove player', err);
+    res.status(500).json({ error: 'Could not remove player' });
   }
 });
 
