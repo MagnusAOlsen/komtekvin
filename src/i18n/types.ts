@@ -129,7 +129,8 @@ export interface LocaleStrings {
     heading: string;
     subtitle: string;
     colName: string;
-    colPlayed: string;
+    /** Header of the lodd-bought column, editable in admin mode. */
+    colTickets: string;
     colWon: string;
     empty: string;
     /** Header of the admin-only remove column. */
@@ -139,13 +140,17 @@ export interface LocaleStrings {
     /** Confirmation shown before a player leaves the stats for good. */
     confirmRemovePlayer: (name: string) => string;
     removeFailed: string;
-    /** Heading over the play/win line chart on a player's page. */
+    /** Accessible label / tooltip on the admin-only lodd field in a row. */
+    editTickets: (name: string) => string;
+    /** Shown when correcting someone's lodd count did not go through. */
+    ticketsFailed: string;
+    /** Heading over the lodd/win chart on a player's page. */
     chartHeading: string;
-    /** The wins-per-game share as a percentage, e.g. "33 %". */
+    /** The wins-per-lodd share as a percentage, e.g. "33 %". */
     chartRatio: (percent: number) => string;
-    /** Caption under the chart, e.g. "1 av 3 spill". */
-    chartCaption: (won: number, played: number) => string;
-    /** Shown instead of the bars when the player has no rounds yet. */
+    /** Caption under the chart, e.g. "1 av 3 lodd". */
+    chartCaption: (won: number, tickets: number) => string;
+    /** Shown instead of the bars when the player has bought no lodd yet. */
     chartEmpty: string;
   };
   sponsor: {

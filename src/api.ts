@@ -37,12 +37,12 @@ export const FALLBACK_WINES: Wine[] = [
 
 // Derived from FALLBACK_WINES so the two stay consistent offline.
 export const FALLBACK_PLAYERS: PlayerStats[] = [
-  { name: 'Navn 1', timesPlayed: 5 },
-  { name: 'Navn 2', timesPlayed: 6 },
-  { name: 'Navn 3', timesPlayed: 4 },
-  { name: 'Navn 4', timesPlayed: 5 },
-  { name: 'Navn 5', timesPlayed: 3 },
-  { name: 'Navn 6', timesPlayed: 2 },
+  { name: 'Navn 1', ticketsBought: 5 },
+  { name: 'Navn 2', ticketsBought: 6 },
+  { name: 'Navn 3', ticketsBought: 4 },
+  { name: 'Navn 4', ticketsBought: 5 },
+  { name: 'Navn 5', ticketsBought: 3 },
+  { name: 'Navn 6', ticketsBought: 2 },
 ].map((p) => {
   const collection = FALLBACK_WINES.filter((w) => w.winner === p.name);
   return { ...p, timesWon: collection.length, collection };
@@ -221,24 +221,45 @@ export function updateWine(
   return saveWine(`/api/wines/${id}`, 'PUT', input, password);
 }
 
-// Records a spin into the stats (admin only). The server also spends the
-// winner's ticket, so it answers with the refreshed wheel — returned here, and
-// null on failure, so the page can redraw from the authoritative pool.
+// Records a spin into the stats (admin only) — only the winner's counter moves,
+// so the others on the wheel are not sent. The server also spends the winner's
+// ticket, so it answers with the refreshed wheel — returned here, and null on
+// failure, so the page can redraw from the authoritative pool.
 export async function recordSpin(
   winner: string,
-  names: string[],
   password: string,
 ): Promise<WheelEntry[] | null> {
   try {
     const res = await fetch('/api/spins/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
-      body: JSON.stringify({ winner, names }),
+      body: JSON.stringify({ winner }),
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { wheel?: WheelEntry[] };
     return body.wheel ?? null;
   } catch {
+    return null;
+  }
+}
+
+// Corrects someone's lodd-kjøpt total (admin only) — the editable cell in the
+// stats table. Returns the refreshed stats, or null if it failed.
+export async function setPlayerTickets(
+  name: string,
+  ticketsBought: number,
+  password: string,
+): Promise<PlayerStats[] | null> {
+  try {
+    const res = await fetch(`/api/players/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+      body: JSON.stringify({ ticketsBought }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as PlayerStats[];
+  } catch (err) {
+    console.error('Failed to set tickets bought', err);
     return null;
   }
 }

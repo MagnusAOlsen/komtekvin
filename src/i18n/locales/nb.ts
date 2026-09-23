@@ -97,7 +97,7 @@ export const nb: LocaleStrings = {
     heading: 'Statistikk',
     subtitle: 'Hvem samler flest flasker?',
     colName: 'Navn',
-    colPlayed: 'Ganger spilt',
+    colTickets: 'Lodd kjøpt',
     colWon: 'Ganger vunnet',
     empty: 'Ingen spillere ennå.',
     colRemove: 'Fjern',
@@ -105,11 +105,12 @@ export const nb: LocaleStrings = {
     confirmRemovePlayer: (name) =>
       `Fjern ${name} fra statistikken? Statistikken og loddene forsvinner, og vinene får «ikke valgt» som vinner.`,
     removeFailed: 'Kunne ikke fjerne spilleren.',
+    editTickets: (name) => `Endre antall lodd kjøpt for ${name}`,
+    ticketsFailed: 'Kunne ikke endre antall lodd.',
     chartHeading: 'Resultat',
     chartRatio: (percent) => `${percent} %`,
-    chartCaption: (won, played) =>
-      played === 1 ? `${won} av 1 spill` : `${won} av ${played} spill`,
-    chartEmpty: 'Ingen spill registrert ennå.',
+    chartCaption: (won, tickets) => `${won} av ${tickets} lodd`,
+    chartEmpty: 'Ingen lodd registrert ennå.',
   },
   sponsor: {
     prefix: 'sponset av',

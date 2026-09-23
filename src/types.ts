@@ -26,7 +26,8 @@ export interface WheelEntry {
 
 export interface PlayerStats {
   name: string;
-  timesPlayed: number;
+  /** Total lodd bought — it never moves on a spin, only when tickets are bought. */
+  ticketsBought: number;
   timesWon: number;
   /** The wines this player has won. */
   collection: Wine[];

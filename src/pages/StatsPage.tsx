@@ -2,32 +2,38 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStrings } from '../i18n';
 import { useAdmin } from '../admin';
 import type { PlayerStats } from '../types';
-import { fetchPlayers, removePlayer } from '../api';
+import { fetchPlayers, removePlayer, setPlayerTickets } from '../api';
 
 // Right-most page — a leaderboard of everyone who has played the lottery.
 // Clicking a name opens that person's collection page, which is the only way
 // in — so it must work for someone who has not won anything yet.
-// Read-only except in ADMIN mode, which adds a per-row remove button. The
-// roster is otherwise edited on the wheel page, where removing a name keeps the
-// stats row; removing it here is the full deletion (see handleRemove).
+// Read-only except in ADMIN mode, which turns the lodd cell into a field and
+// adds a per-row remove button. The wheel is where lodd are normally counted
+// (joining or stepping the ticket count up buys them); the field here is the
+// correction for a number counted outside the app. Removing a name on the wheel
+// page keeps the stats row — removing it here is the full deletion.
 export function StatsPage({ onViewPlayer }: { onViewPlayer: (name: string) => void }) {
   const t = useStrings();
   const { isAdmin, password } = useAdmin();
   const [players, setPlayers] = useState<PlayerStats[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The one cell being edited, if any — only one field is open at a time, so a
+  // single draft is enough to keep the typed text out of the players list.
+  const [draft, setDraft] = useState<{ name: string; value: string } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     fetchPlayers().then(setPlayers);
   }, []);
 
-  // Most wins first, then most rounds played; the name breaks the remaining
+  // Most wins first, then most lodd bought; the name breaks the remaining
   // ties so the order does not drift between reloads.
   const ranked = useMemo(
     () =>
       [...players].sort(
         (a, b) =>
           b.timesWon - a.timesWon ||
-          b.timesPlayed - a.timesPlayed ||
+          b.ticketsBought - a.ticketsBought ||
           a.name.localeCompare(b.name, 'nb'),
       ),
     [players],
@@ -45,6 +51,25 @@ export function StatsPage({ onViewPlayer }: { onViewPlayer: (name: string) => vo
     else setError(t.stats.removeFailed);
   }
 
+  // Called when a lodd field is left (Enter blurs it too). Closing the draft
+  // first makes Escape — which clears it before blurring — a plain cancel, and
+  // keeps the blur that follows Enter from saving the same value twice.
+  async function handleTickets(player: PlayerStats) {
+    if (!password || !draft || draft.name !== player.name) return;
+    const value = Math.floor(Number(draft.value));
+    setDraft(null);
+    if (!Number.isFinite(value) || value < 0 || value === player.ticketsBought) return;
+    setBusy(true);
+    const refreshed = await setPlayerTickets(player.name, value, password);
+    setBusy(false);
+    if (refreshed) {
+      setPlayers(refreshed);
+      setError(null);
+    } else {
+      setError(t.stats.ticketsFailed);
+    }
+  }
+
   return (
     <section className="page stats-page">
       {ranked.length === 0 ? (
@@ -55,7 +80,7 @@ export function StatsPage({ onViewPlayer }: { onViewPlayer: (name: string) => vo
             <thead>
               <tr>
                 <th>{t.stats.colName}</th>
-                <th>{t.stats.colPlayed}</th>
+                <th>{t.stats.colTickets}</th>
                 <th>{t.stats.colWon}</th>
                 {isAdmin && <th>{t.stats.colRemove}</th>}
               </tr>
@@ -72,7 +97,36 @@ export function StatsPage({ onViewPlayer }: { onViewPlayer: (name: string) => vo
                       {player.name}
                     </button>
                   </td>
-                  <td className="num">{player.timesPlayed}</td>
+                  <td className="num">
+                    {isAdmin ? (
+                      <input
+                        type="number"
+                        min={0}
+                        className="stats-tickets"
+                        aria-label={t.stats.editTickets(player.name)}
+                        title={t.stats.editTickets(player.name)}
+                        disabled={busy}
+                        value={
+                          draft?.name === player.name
+                            ? draft.value
+                            : String(player.ticketsBought)
+                        }
+                        onChange={(e) =>
+                          setDraft({ name: player.name, value: e.target.value })
+                        }
+                        onBlur={() => handleTickets(player)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur();
+                          if (e.key === 'Escape') {
+                            setDraft(null);
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                    ) : (
+                      player.ticketsBought
+                    )}
+                  </td>
                   <td className="num">{player.timesWon}</td>
                   {isAdmin && (
                     <td className="num">

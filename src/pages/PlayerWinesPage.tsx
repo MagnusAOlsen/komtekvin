@@ -67,7 +67,10 @@ export function PlayerWinesPage({ name, onBack }: { name: string; onBack: () => 
 
         <aside className="player-chart-col">
           {player && (
-            <PlayerStatsChart timesPlayed={player.timesPlayed} timesWon={player.timesWon} />
+            <PlayerStatsChart
+              ticketsBought={player.ticketsBought}
+              timesWon={player.timesWon}
+            />
           )}
         </aside>
 

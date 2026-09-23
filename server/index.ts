@@ -19,7 +19,9 @@ import {
 import {
   readPlayers,
   computeStats,
-  recordRound,
+  recordWin,
+  addTickets,
+  setTicketsBought,
   addPlayer,
   removePlayer,
 } from './store/players.js';
@@ -118,23 +120,22 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
   }
 });
 
-// Records a spin result into the stats — the ONLY write path to the table.
-// Admin-only: without the correct password nothing is updated.
+// Records a spin result into the stats. Admin-only: without the correct
+// password nothing is updated. Only the winner's counter moves — the other
+// number in the table is lodd bought, which is counted where tickets are
+// bought (the wheel routes below), not once per spin.
 app.post('/api/spins/record', async (req: Request, res: Response) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: 'Admin only' });
     return;
   }
   const winner = typeof req.body?.winner === 'string' ? req.body.winner.trim() : '';
-  const names: string[] = Array.isArray(req.body?.names)
-    ? req.body.names.filter((n: unknown): n is string => typeof n === 'string')
-    : [];
   if (!winner) {
     res.status(400).json({ error: 'winner is required' });
     return;
   }
   try {
-    const players = await recordRound(names, winner);
+    const players = await recordWin(winner);
     await appendSpin(winner);
     // The win costs the winner one ticket; at zero they drop off the wheel.
     // Spending happens here and nowhere else, so a non-admin spin — which never
@@ -251,7 +252,7 @@ app.post('/api/wines', async (req: Request, res: Response) => {
 // later. Admin-only. Every field is editable including `winner` — because a
 // collection is derived by matching that field, changing it moves the bottle to
 // another player's page. The stats counters are deliberately untouched: only a
-// recorded spin moves timesPlayed / timesWon.
+// recorded spin moves timesWon, and only buying tickets moves ticketsBought.
 app.put('/api/wines/:id', async (req: Request, res: Response) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: 'Admin only' });
@@ -292,8 +293,10 @@ app.put('/api/wines/:id', async (req: Request, res: Response) => {
 });
 
 // Adds a participant to the wheel with a ticket count, and if they are new also
-// to the stats roster with zeroed counters. Admin-only. Someone taken off the
-// wheel earlier can be added back here — their existing counters are kept.
+// to the stats roster with zeroed counters. The tickets are counted as bought,
+// so the stats table's «lodd kjøpt» goes up by the number joined with. Admin-only.
+// Someone taken off the wheel earlier can be added back here — their existing
+// counters are kept, and the new tickets add to them.
 app.post('/api/wheel-names', async (req: Request, res: Response) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: 'Admin only' });
@@ -312,6 +315,7 @@ app.post('/api/wheel-names', async (req: Request, res: Response) => {
       return;
     }
     await addPlayer(name);
+    await addTickets(name, tickets);
     res.status(201).json(await addWheelEntry(name, tickets));
   } catch (err) {
     console.error('Failed to add wheel name', err);
@@ -321,6 +325,10 @@ app.post('/api/wheel-names', async (req: Request, res: Response) => {
 
 // Sets how many tickets someone holds, i.e. how much of the wheel they cover.
 // Admin-only. Sending 0 takes them off the wheel, same as the DELETE below.
+// The difference from what they held is counted as bought (or un-bought, so a
+// misclick on − undoes itself). Doing this here rather than inside setTickets()
+// is what keeps a win free: consumeTicket() calls setTickets() in the store,
+// never through this route, so spending the winner's ticket costs no lodd.
 app.patch('/api/wheel-names/:name', async (req: Request, res: Response) => {
   if (!isAdmin(req)) {
     res.status(401).json({ error: 'Admin only' });
@@ -333,6 +341,9 @@ app.patch('/api/wheel-names/:name', async (req: Request, res: Response) => {
     return;
   }
   try {
+    const entries = await readWheelEntries();
+    const current = entries.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+    if (current) await addTickets(current.name, Math.max(0, tickets) - current.tickets);
     res.json(await setTickets(name, tickets));
   } catch (err) {
     console.error('Failed to set tickets', err);
@@ -358,6 +369,34 @@ app.delete('/api/wheel-names/:name', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Failed to remove wheel name', err);
     res.status(500).json({ error: 'Could not remove name' });
+  }
+});
+
+// Corrects how many lodd someone has bought — the one editable cell in the
+// stats table. Needed because the counter only started with tickets bought
+// through the app, and because a count can simply be wrong. Admin-only.
+// Answers with the refreshed stats so the table redraws from the stored copy.
+app.patch('/api/players/:name', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    res.status(401).json({ error: 'Admin only' });
+    return;
+  }
+  const name = req.params.name.trim();
+  const tickets = Math.floor(Number(req.body?.ticketsBought));
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+  if (!Number.isFinite(tickets) || tickets < 0) {
+    res.status(400).json({ error: 'ticketsBought must be zero or more' });
+    return;
+  }
+  try {
+    await setTicketsBought(name, tickets);
+    res.json(await currentStats());
+  } catch (err) {
+    console.error('Failed to set tickets bought', err);
+    res.status(500).json({ error: 'Could not set tickets bought' });
   }
 });
 

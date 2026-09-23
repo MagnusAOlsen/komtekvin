@@ -49,7 +49,7 @@ export function WheelPage() {
     // The stats table is only updated in ADMIN mode — and that same call spends
     // the winner's ticket, so we redraw from the pool the server sends back.
     if (isAdmin && password) {
-      const wheel = await recordSpin(name, entries.map((entry) => entry.name), password);
+      const wheel = await recordSpin(name, password);
       if (wheel) setEntries(wheel);
     }
   }

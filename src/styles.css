@@ -916,6 +916,29 @@ body {
   color: #fff;
 }
 
+/* Admin-only lodd field in the stats table — the correction for tickets bought
+   outside the app. Sized to the digits so the column keeps its width. */
+.stats-tickets {
+  font: inherit;
+  width: 3.5em;
+  padding: 3px 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--wine-red-tint);
+  border-radius: 6px;
+}
+
+.stats-tickets:focus {
+  outline: 2px solid var(--wine-red);
+  outline-offset: 1px;
+}
+
+.stats-tickets:disabled {
+  opacity: 0.5;
+}
+
 /* ---------- A player's page: chart left, bottles right ---------- */
 /* Same left-column idea as .wheel-layout, minus the centring third column.
    Named areas rather than source order, so the chart can move above the
