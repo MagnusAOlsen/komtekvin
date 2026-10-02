@@ -3,6 +3,7 @@
 // Swapping an image is just replacing the file at the same path.
 export const IMG = {
   aces: '/img/aces.png',
+  komtekle: '/img/komtekle.png',
   vipps: '/img/vipps-icon.svg',
   happyWine: '/img/happy_wine.png',
   catCheers: '/img/cat_2.png',

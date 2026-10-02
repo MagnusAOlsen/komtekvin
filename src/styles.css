@@ -1447,9 +1447,10 @@ body {
   box-shadow: 0 4px 12px var(--gold-tint);
 }
 
-.sponsor-aces {
-  width: clamp(18px, 1.5vw, 30px);
-  height: auto;
+.sponsor-image {
+  height: 18px;
+  padding: 4px;
+  width: auto;
 }
 
 .sponsor-brand {
